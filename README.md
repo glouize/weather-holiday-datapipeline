@@ -1,6 +1,16 @@
 # Weather & Public Holiday Intelligence Platform
 
-> **Stack**: Python · DuckDB · dbt · Streamlit · Grafana
+![Status](https://img.shields.io/badge/Status-Completed-brightgreen)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
+![DuckDB](https://img.shields.io/badge/DuckDB-1.5.5-FFF000?logo=duckdb&logoColor=black)
+![dbt](https://img.shields.io/badge/dbt-1.9.4-FF694B?logo=dbt&logoColor=white)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.62.0-FF4B4B?logo=streamlit&logoColor=white)
+![Grafana](https://img.shields.io/badge/Grafana-OSS-F46800?logo=grafana&logoColor=white)
+![Plotly](https://img.shields.io/badge/Plotly-6.9.0-3F4F75?logo=plotly&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-2.3.1-150458?logo=pandas&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL_Bridge-mysql--mimic-4479A1?logo=mysql&logoColor=white)
+![YAML](https://img.shields.io/badge/Config-PyYAML-CB171E?logo=yaml&logoColor=white)
+
 > **Architecture**: Medallion Architecture (Bronze → Silver → Gold)
 > **Cities**: London (GB) & Manila (PH) · **Period**: 2021–2026 (5 years)
 
