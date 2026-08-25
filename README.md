@@ -1,12 +1,10 @@
 ﻿# Weather & Public Holiday Intelligence Platform
 
-> **Author**: Louise Guerrero
 > **Stack**: Python · DuckDB · dbt · Streamlit · Grafana
 > **Architecture**: Medallion Architecture (Bronze → Silver → Gold)
 > **Cities**: London (GB) & Manila (PH) · **Period**: 2021–2026 (5 years)
 
 ---
-
 ## Table of Contents
 1. [Project Overview](#project-overview)
 2. [Architecture](#architecture)
@@ -34,55 +32,55 @@ It ingests 5 years (2021–2026) of daily weather observations and national publ
 
 ## Architecture
 
-`
-┌─────────────────────────────────────────────────────────────────┐
-│  External APIs (No API key required)                            │
-│  • Open-Meteo Historical Archive  →  Daily temp & precipitation │
-│  • Nager.Date Public Holidays     →  National holiday calendars  │
-└───────────────────────┬─────────────────────────────────────────┘
-                        │ Python HTTP (retry + exponential backoff)
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  🥉 Bronze Layer  (warehouse.duckdb / bronze.*)                  │
-│  Raw, immutable tables with audit lineage columns:              │
-│  _ingested_at · _source_system · _batch_id                      │
-│  • bronze.weather   3,654 rows                                  │
-│  • bronze.holidays    193 rows                                  │
-└───────────────────────┬─────────────────────────────────────────┘
-                        │ dbt run
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  🥈 Silver Layer  (main_silver.*)                               │
-│  Cleansed, standardized, deduplicated intermediate layer        │
-│  • stg_weather              (view)   ISO dates, range checks    │
-│  • stg_holidays             (view)   snake_case, boolean types  │
-│  • silver_weather_holidays  (table)  Joined daily observation   │
-└───────────────────────┬─────────────────────────────────────────┘
-                        │ dbt run
-                        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  🥇 Gold Layer  (main_gold.*)  ← Star Schema + Business Marts  │
-│                                                                 │
-│  Dimensions:                  Facts & Marts:                    │
-│  • dim_date       1,827 rows  • fact_daily_weather  3,654 rows │
-│  • dim_location       2 rows  • mart_weather_summary    4 rows │
-│  • dim_holiday       38 rows  • mart_per_holiday       37 rows │
-│                               • mart_yearly_trends     12 rows │
-│                               • mart_monthly_season    44 rows │
-│                               • mart_rain_probability   4 rows │
-│                               • mart_extreme_events   162 rows │
-└───────────┬───────────────────────────┬─────────────────────────┘
-            │ Direct DuckDB (read_only)  │ MySQL Wire Protocol
-            ▼                           ▼
-   Streamlit App (port 8501)    mysql_server.py (port 3306)
-   serving/dashboard.py         serving/mysql_server.py
-                                        │
-                                        ▼
-                               Grafana OSS (port 3000)
-                               • London Dashboard
-                               • Manila Dashboard
-                               • Overview Dashboard
-`
+```text
++-----------------------------------------------------------------+
+|  External APIs (no API key required)                            |
+|  - Open-Meteo Historical Archive -> daily temperature and rain  |
+|  - Nager.Date Public Holidays    -> national holiday calendars  |
++-----------------------+-----------------------------------------+
+                        | Python HTTP with retry and backoff
+                        v
++-----------------------------------------------------------------+
+|  Bronze Layer (warehouse.duckdb / bronze.*)                     |
+|  Raw, immutable tables with audit lineage columns:              |
+|  _ingested_at, _source_system, _batch_id                        |
+|  - bronze.weather    3,654 rows                                 |
+|  - bronze.holidays     193 rows                                 |
++-----------------------+-----------------------------------------+
+                        | dbt run
+                        v
++-----------------------------------------------------------------+
+|  Silver Layer (main_silver.*)                                   |
+|  Cleansed, standardized, deduplicated intermediate layer        |
+|  - stg_weather              (view)  ISO dates, range checks     |
+|  - stg_holidays             (view)  snake_case, boolean types   |
+|  - silver_weather_holidays  (table) joined daily observations   |
++-----------------------+-----------------------------------------+
+                        | dbt run
+                        v
++-----------------------------------------------------------------+
+|  Gold Layer (main_gold.*) - star schema and business marts      |
+|
+|  Dimensions:                  Facts and marts:                  |
+|  - dim_date       1,827 rows  - fact_daily_weather  3,654 rows  |
+|  - dim_location       2 rows  - mart_weather_summary    4 rows  |
+|  - dim_holiday       38 rows  - mart_per_holiday       37 rows  |
+|                               - mart_yearly_trends     12 rows  |
+|                               - mart_monthly_season    44 rows  |
+|                               - mart_rain_probability   4 rows  |
+|                               - mart_extreme_events   162 rows  |
++-----------+---------------------------------------+-------------+
+            | Direct DuckDB (read-only)             | MySQL protocol
+            v                                       v
+   Streamlit App (port 8501)             mysql_server.py (port 3306)
+   serving/dashboard.py                  serving/mysql_server.py
+                                                        |
+                                                        v
+                                               Grafana OSS (port 3000)
+                                               - London Dashboard
+                                               - Manila Dashboard
+                                               - Overview Dashboard
+```
 
 ---
 
@@ -125,8 +123,6 @@ weather_holiday_dbt_pipeline/
 │   ├── setup_grafana.py        #   Legacy Grafana setup
 │   └── setup_metabase.py       #   Metabase provisioning
 │
-├── tests/                      # Quality checks & benchmarks
-│   ├── benchmark_queries.py    #   Panel query latency benchmarks
 │   ├── test_city_dashboards.py #   City dashboard panel tests
 │   ├── test_all_panels.py      #   Full panel data verification
 │   └── test_panels.py          #   Individual panel tests
@@ -295,12 +291,13 @@ Grafana default credentials: dmin / dmin
 
 | Test Type | Count | Models Covered |
 |---|---|---|
-| unique (PK) | 4 | dim_date, dim_location, dim_holiday, act_daily_weather |
-| 
 ot_null | 18 | All dimension and fact key columns |
-| elationships (FK) | 3 | act_daily_weather → dim_date, dim_location, dim_holiday |
-| Silver 
+elationships (FK) | 3 | act_daily_weather → dim_date, dim_location, dim_holiday |
 ot_null | 9 | stg_weather, stg_holidays, silver_weather_holidays |
+| unique (PK) | 4 | dim_date, dim_location, dim_holiday, fact_daily_weather |
+| not_null | 18 | All dimension and fact key columns |
+| relationships (FK) | 3 | fact_daily_weather -> dim_date, dim_location, dim_holiday |
+| Silver not_null | 9 | stg_weather, stg_holidays, silver_weather_holidays |
 
 Run tests manually:
 `ash
@@ -365,4 +362,3 @@ No external monitoring platform (Datadog, ELK, Grafana Loki, Prometheus) is inte
 
 ---
 
-*Created by Louise Guerrero*
