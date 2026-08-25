@@ -1,7 +1,4 @@
 # Data Lifecycle Management (DLM) Policy
-**Project**: Multi-City Weather & Public Holiday Intelligence Warehouse  
-**Author**: Louise Guerrero  
-**Last Updated**: August 2026  
 
 ---
 

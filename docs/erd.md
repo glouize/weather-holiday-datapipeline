@@ -1,7 +1,5 @@
 # Weather & Holiday Data Platform: Entity-Relationship Diagram (ERD) & Data Dictionary
-**Author**: Louise Guerrero  
 **Architecture**: Medallion Architecture (Bronze $\rightarrow$ Silver $\rightarrow$ Gold)  
-**Last Updated**: August 2026  
 
 ---
 

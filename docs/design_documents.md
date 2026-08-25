@@ -1,8 +1,5 @@
 # Weather & Public Holiday Intelligence Platform
 ## System Architecture & Technical Design Document (HLD & DLD)
-**Author**: Louise Guerrero  
-**Project**: Medallion Architecture & Data Lifecycle for Multi-City Weather & Public Holiday Warehouse  
-**Last Updated**: August 2026  
 
 ---
 
