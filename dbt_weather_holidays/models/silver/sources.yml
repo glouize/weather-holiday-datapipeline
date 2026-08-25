@@ -1,0 +1,53 @@
+version: 2
+
+sources:
+  - name: bronze
+    database: warehouse
+    schema: bronze
+    description: "Bronze Layer: Raw ingested data from external REST APIs (Open-Meteo & Nager.Date)"
+    tables:
+      - name: weather
+        description: "Raw daily weather observations per city with ingestion metadata"
+        columns:
+          - name: city
+            description: "City name"
+          - name: country_code
+            description: "ISO country code"
+          - name: time
+            description: "Observation date/timestamp"
+          - name: temperature_2m_max
+            description: "Daily max temperature in Celsius"
+          - name: temperature_2m_min
+            description: "Daily min temperature in Celsius"
+          - name: precipitation_sum
+            description: "Daily precipitation sum in mm"
+          - name: _ingested_at
+            description: "UTC timestamp of ingestion"
+          - name: _source_system
+            description: "Name of the source API"
+          - name: _batch_id
+            description: "Unique batch identifier"
+
+      - name: holidays
+        description: "Raw public holidays per country with ingestion metadata"
+        columns:
+          - name: date
+            description: "Holiday date"
+          - name: localName
+            description: "Local name of the holiday"
+          - name: name
+            description: "English name of the holiday"
+          - name: countryCode
+            description: "ISO country code"
+          - name: fixed
+            description: "Whether the holiday date is fixed"
+          - name: global
+            description: "Whether the holiday applies nationwide"
+          - name: types
+            description: "Holiday types comma-separated"
+          - name: _ingested_at
+            description: "UTC timestamp of ingestion"
+          - name: _source_system
+            description: "Name of the source API"
+          - name: _batch_id
+            description: "Unique batch identifier"

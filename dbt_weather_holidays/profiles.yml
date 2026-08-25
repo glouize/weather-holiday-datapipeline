@@ -1,0 +1,7 @@
+dbt_weather_holidays:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: '../warehouse.duckdb'
+      schema: main

@@ -1,0 +1,47 @@
+version: 2
+
+models:
+  - name: stg_weather
+    description: "Silver Layer: Cleaned, type-safe weather observations"
+    columns:
+      - name: date_key
+        description: "Observation calendar date"
+        tests:
+          - not_null
+      - name: city
+        description: "City name"
+        tests:
+          - not_null
+      - name: country_code
+        description: "ISO country code"
+        tests:
+          - not_null
+
+  - name: stg_holidays
+    description: "Silver Layer: Cleaned holiday records"
+    columns:
+      - name: date_key
+        description: "Holiday date"
+        tests:
+          - not_null
+      - name: holiday_name
+        description: "Standard English holiday name"
+        tests:
+          - not_null
+      - name: country_code
+        description: "Country code"
+        tests:
+          - not_null
+
+  - name: silver_weather_holidays
+    description: "Silver Layer: Unified observation table joining weather and holidays"
+    columns:
+      - name: date_key
+        tests:
+          - not_null
+      - name: city
+        tests:
+          - not_null
+      - name: is_holiday
+        tests:
+          - not_null

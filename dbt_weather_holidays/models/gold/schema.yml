@@ -1,0 +1,72 @@
+version: 2
+
+models:
+  - name: dim_date
+    description: "Gold Layer: Date Dimension table"
+    columns:
+      - name: date_key
+        tests:
+          - unique
+          - not_null
+
+  - name: dim_location
+    description: "Gold Layer: Location Dimension table"
+    columns:
+      - name: location_id
+        tests:
+          - unique
+          - not_null
+      - name: city_name
+        tests:
+          - not_null
+
+  - name: dim_holiday
+    description: "Gold Layer: Holiday Dimension table"
+    columns:
+      - name: holiday_id
+        tests:
+          - unique
+          - not_null
+
+  - name: fact_daily_weather
+    description: "Gold Layer: Daily Weather Fact table"
+    columns:
+      - name: fact_id
+        tests:
+          - unique
+          - not_null
+      - name: date_key
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_date')
+              field: date_key
+      - name: location_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_location')
+              field: location_id
+      - name: holiday_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_holiday')
+              field: holiday_id
+
+  - name: mart_weather_summary
+    description: "Gold Layer: Business Mart for weather comparison summary"
+    columns:
+      - name: city
+        tests:
+          - not_null
+      - name: day_type
+        tests:
+          - not_null
+
+  - name: mart_per_holiday
+    description: "Gold Layer: Business Mart for individual holiday weather rankings"
+    columns:
+      - name: holiday_name
+        tests:
+          - not_null

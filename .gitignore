@@ -1,0 +1,40 @@
+﻿# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Sensitive credentials and secrets
+.env
+*.env
+.env.*
+certs/*.key
+certs/*.pem
+
+# Database and data warehouse binaries
+warehouse.duckdb
+warehouse.duckdb.wal
+*.duckdb
+*.duckdb.wal
+*.db
+*.sqlite
+*.parquet
+
+# dbt artifacts
+dbt_weather_holidays/target/
+dbt_weather_holidays/dbt_packages/
+dbt_weather_holidays/logs/
+logs/
+
+# Streamlit secrets and runtime
+.streamlit/secrets.toml
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

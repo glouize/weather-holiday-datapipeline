@@ -1,0 +1,79 @@
+# ============================================================
+# Weather Pipeline - Central Configuration
+# Edit this file to change cities, API settings, or ports.
+# ============================================================
+
+project:
+  name: "Weather & Public Holiday Intelligence Platform"
+  author: "Louise Guerrero"
+  version: "2.0.0"
+
+database:
+  path: "warehouse.duckdb"
+  gold_schema: "main_gold"
+  silver_schema: "main_silver"
+  bronze_schema: "bronze"
+  raw_schema: "raw"
+
+cities:
+  - city: "London"
+    country_code: "GB"
+    lat: 51.5074
+    lon: -0.1278
+    emoji: "GB"
+    primary_color: "#4ECDC4"
+    grafana_uid: "weather-london-insights"
+  - city: "Manila"
+    country_code: "PH"
+    lat: 14.5995
+    lon: 120.9842
+    emoji: "PH"
+    primary_color: "#FF6B6B"
+    grafana_uid: "weather-manila-insights"
+
+ingestion:
+  years_lookback: 5
+  weather_api_url: "https://archive-api.open-meteo.com/v1/archive"
+  holidays_api_url: "https://date.nager.at/api/v3/PublicHolidays"
+  weather_timeout_seconds: 60
+  holiday_timeout_seconds: 15
+  max_retries: 3
+  retry_backoff_seconds: 5
+  holiday_throttle_seconds: 0.5
+  weather_fields:
+    - "temperature_2m_max"
+    - "temperature_2m_min"
+    - "precipitation_sum"
+
+serving:
+  mysql_bridge:
+    host: "127.0.0.1"  # Loopback only. Use 0.0.0.0 only if Grafana runs on a remote host.
+    port: 3306
+    database_name: "weather"
+    mysql_version: "8.0.32"
+    cache_size: 256
+  streamlit:
+    port: 8501
+  grafana_api:
+    port: 8888
+
+certs:
+  cert_file: "certs/server.crt"
+  key_file: "certs/server.key"
+
+grafana:
+  url: "http://localhost:3000"
+  username: "admin"
+  password: "admin"
+  datasource_name: "WeatherMySQL"
+  mysql_host: "127.0.0.1"
+  mysql_port: 3306
+  mysql_database: "weather"
+  mysql_user: "root"
+  overview_dashboard_uid: "weather-holiday-mysql"
+
+streamlit:
+  colors:
+    holiday: "#FF6B6B"
+    regular: "#4ECDC4"
+    accent: "#6C63FF"
