@@ -1,4 +1,4 @@
-﻿# Weather & Public Holiday Intelligence Platform
+# Weather & Public Holiday Intelligence Platform
 
 > **Stack**: Python · DuckDB · dbt · Streamlit · Grafana
 > **Architecture**: Medallion Architecture (Bronze → Silver → Gold)
@@ -11,12 +11,13 @@
 3. [Tech Stack](#tech-stack)
 4. [Project Structure](#project-structure)
 5. [Data Model](#data-model)
-6. [Quickstart](#quickstart)
-7. [Running the Pipeline](#running-the-pipeline)
-8. [Running the Dashboards](#running-the-dashboards)
-9. [Data Quality](#data-quality)
-10. [Observability](#observability)
-11. [Dashboards](#dashboards)
+6. [Documentation](#documentation)
+7. [Quickstart](#quickstart)
+8. [Running the Pipeline](#running-the-pipeline)
+9. [Running the Dashboards](#running-the-dashboards)
+10. [Data Quality](#data-quality)
+11. [Observability](#observability)
+12. [Dashboards](#dashboards)
 
 ---
 
@@ -123,9 +124,11 @@ weather_holiday_dbt_pipeline/
 │   ├── setup_grafana.py        #   Legacy Grafana setup
 │   └── setup_metabase.py       #   Metabase provisioning
 │
+├── tests/                      # Automated tests & benchmarks
 │   ├── test_city_dashboards.py #   City dashboard panel tests
 │   ├── test_all_panels.py      #   Full panel data verification
-│   └── test_panels.py          #   Individual panel tests
+│   ├── test_panels.py          #   Individual panel tests
+│   └── benchmark_queries.py    #   Grafana panel latency benchmark
 │
 ├── utils/                      # Debug & inspection tools
 │   ├── view_data.py            #   Print data insights to console
@@ -133,10 +136,18 @@ weather_holiday_dbt_pipeline/
 │   ├── inspect_panels.py       #   Inspect Grafana panel config
 │   └── diagnose.py             #   Diagnose datasource UID mismatches
 │
-├── certs/                      # TLS certificates
-│   ├── gen_certs.py            #   Generate server.crt & server.key
-│   ├── server.crt              #   Self-signed certificate
-│   └── server.key              #   Private key
+├── config/                     # Central configuration module
+│   ├── __init__.py
+│   └── settings.py             #   YAML config loader (cfg, ROOT, DB_FILE, CITIES)
+│
+├── certs/                      # TLS certificates (auto-generated)
+│   └── gen_certs.py            #   Generate server.crt & server.key
+│
+├── docs/                       # Design documentation
+│   ├── design_documents.md     #   HLD & DLD (architecture, sequence diagrams)
+│   ├── erd.md                  #   ERD & Data Dictionary (all 3 layers)
+│   ├── data_lifecycle_policy.md #  Data Lifecycle Management policy
+│   └── data_insights_report.md #   Key analytical findings
 │
 ├── dbt_weather_holidays/       # dbt project (Bronze → Silver → Gold)
 │   ├── dbt_project.yml
@@ -147,8 +158,11 @@ weather_holiday_dbt_pipeline/
 │
 ├── .streamlit/
 │   └── config.toml             # Dark mode theme config
-├── warehouse.duckdb            # Main DuckDB data warehouse (~6 MB)
-└── requirements.txt            # Python dependencies
+├── config.yaml                 # Central config (cities, APIs, ports, credentials)
+├── .env.example                # Environment variable template
+├── .gitignore                  # Git safety: excludes .duckdb, .key, .env, __pycache__
+├── requirements.txt            # Python dependencies
+└── LICENSE                     # MIT License (Louise Guerrero)
 `
 
 ---
@@ -195,6 +209,19 @@ weather_holiday_dbt_pipeline/
 | is_holiday | BOOLEAN | True if the day is a public holiday |
 | is_weekend | BOOLEAN | True if Saturday or Sunday |
 | year / month | INT | Extracted calendar attributes |
+
+---
+
+## Documentation
+
+Detailed design documents are available in the [`docs/`](docs/) folder:
+
+| Document | Description |
+|---|---|
+| [**design_documents.md**](docs/design_documents.md) | **HLD & DLD** — High-Level Architecture diagrams, Medallion layer design, sequence diagrams, component responsibilities |
+| [**erd.md**](docs/erd.md) | **ERD & Data Dictionary** — Full Entity-Relationship Diagram across Bronze, Silver, and Gold layers with column-level data types and descriptions |
+| [**data_lifecycle_policy.md**](docs/data_lifecycle_policy.md) | **Data Lifecycle Management** — Ingestion, storage, processing, serving, and retention policies with SLA definitions |
+| [**data_insights_report.md**](docs/data_insights_report.md) | **Analytical Findings** — Key insights derived from the data (holiday vs. regular day weather patterns) |
 
 ---
 
