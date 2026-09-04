@@ -57,6 +57,8 @@ It ingests 5 years (2021–2026) of daily weather observations and national publ
 
 ![Detailed Low-Level Design — Pipeline Sequence](docs/images/dld_sequence.jpg)
 
+> 🔍 **Interactive Vector Diagram**: [`docs/dld_sequence.html`](docs/dld_sequence.html)
+
 ---
 
 ## Tech Stack
@@ -170,6 +172,7 @@ It ingests 5 years (2021–2026) of daily weather observations and national publ
 
 ![Entity-Relationship Diagram — Medallion Architecture](docs/images/erd_diagram.jpg)
 
+> 🔍 **Interactive Vector Diagram**: [`docs/erd_diagram.html`](docs/erd_diagram.html)  
 > Full ERD with data dictionary: [`docs/erd.md`](docs/erd.md)
 
 ---

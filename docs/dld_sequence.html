@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Detailed Low-Level Design (DLD) · Pipeline Execution Sequence</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:        #2d3142;
+      --color-paper-2:      #393e53;
+      --color-ink:          #f5f5f5;
+      --color-muted:        #bfc0c0;
+      --color-soft:         #8e98ac;
+      --color-rule:         rgba(245, 245, 245, 0.12);
+      --color-rule-solid:   rgba(191, 192, 192, 0.25);
+      --color-accent:       #f08a59;
+      --color-link:         #6a95d8;
+      --font-sans:          'Geist', system-ui, -apple-system, sans-serif;
+      --font-serif:         'Instrument Serif', Georgia, serif;
+      --font-mono:          'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 3rem 1.5rem;
+    }
+
+    .frame {
+      max-width: 1160px;
+      width: 100%;
+    }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.4rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.75rem, 2.5vw + 0.8rem, 2.35rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 0.5rem;
+    }
+
+    .subtitle {
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      color: var(--color-soft);
+      margin-bottom: 2rem;
+      max-width: 800px;
+      line-height: 1.5;
+    }
+
+    .diagram-wrapper {
+      width: 100%;
+      border: 1px solid var(--color-rule-solid);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--color-paper);
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .footer-note {
+      margin-top: 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--color-soft);
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="frame">
+    <p class="eyebrow">Sequence · Detailed Low-Level Design (DLD)</p>
+    <h1>Pipeline Execution &amp; Data Lifecycle Flow</h1>
+    <p class="subtitle">End-to-end execution sequence illustrating API ingestion with exponential backoff, atomic bronze storage, dbt dimensional modeling, quality test enforcement, and OLAP query serving.</p>
+
+    <div class="diagram-wrapper">
+      <svg viewBox="0 0 1000 920" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="dld-seq-title dld-seq-desc">
+        <title id="dld-seq-title">Pipeline Execution Sequence Diagram</title>
+        <desc id="dld-seq-desc">Chronological sequence between Operator, extract_load.py, DuckDB Warehouse, dbt Core, and BI Serving Dashboards.</desc>
+
+        <defs>
+          <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="0.9" fill="rgba(245,245,245,0.06)"/>
+          </pattern>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#bfc0c0"/>
+          </marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#6a95d8"/>
+          </marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#f08a59"/>
+          </marker>
+        </defs>
+
+        <!-- Base Background -->
+        <rect width="100%" height="100%" fill="#2d3142"/>
+        <rect width="100%" height="100%" fill="url(#dots)" opacity="0.6"/>
+
+        <!-- ============================================================ -->
+        <!-- LIFELINES (5 actors, centers at x: 100, 300, 500, 700, 900) -->
+        <!-- ============================================================ -->
+        <line x1="100" y1="90" x2="100" y2="860" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
+        <line x1="300" y1="90" x2="300" y2="860" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
+        <line x1="500" y1="90" x2="500" y2="860" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
+        <line x1="700" y1="90" x2="700" y2="860" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
+        <line x1="900" y1="90" x2="900" y2="860" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
+
+        <!-- ============================================================ -->
+        <!-- ACTIVATION BARS (Narrow rect w=8; centered on lifelines) -->
+        <!-- ============================================================ -->
+        <!-- Operator active -->
+        <rect x="96" y="115" width="8" height="690" rx="2" fill="#393e53" stroke="rgba(245,245,245,0.2)" stroke-width="0.8"/>
+        
+        <!-- extract_load.py active -->
+        <rect x="296" y="130" width="8" height="150" rx="2" fill="#393e53" stroke="rgba(245,245,245,0.2)" stroke-width="0.8"/>
+        
+        <!-- DuckDB active intervals -->
+        <rect x="496" y="215" width="8" height="60" rx="2" fill="#393e53" stroke="rgba(245,245,245,0.2)" stroke-width="0.8"/>
+        <rect x="496" y="340" width="8" height="110" rx="2" fill="#393e53" stroke="rgba(245,245,245,0.2)" stroke-width="0.8"/>
+        <rect x="496" y="520" width="8" height="70" rx="2" fill="#393e53" stroke="rgba(245,245,245,0.2)" stroke-width="0.8"/>
+        <rect x="496" y="740" width="8" height="70" rx="2" fill="#393e53" stroke="rgba(245,245,245,0.2)" stroke-width="0.8"/>
+
+        <!-- dbt Core active intervals -->
+        <rect x="696" y="325" width="8" height="140" rx="2" fill="#393e53" stroke="rgba(245,245,245,0.2)" stroke-width="0.8"/>
+        <rect x="696" y="505" width="8" height="185" rx="2" fill="#393e53" stroke="rgba(245,245,245,0.2)" stroke-width="0.8"/>
+
+        <!-- Serving active interval -->
+        <rect x="896" y="695" width="8" height="135" rx="2" fill="rgba(240,138,89,0.15)" stroke="#f08a59" stroke-width="1"/>
+
+        <!-- ============================================================ -->
+        <!-- COMBINED FRAGMENTS (opt / loop frames) -->
+        <!-- ============================================================ -->
+        <!-- Frame 1: Ingestion Retry Loop -->
+        <rect x="235" y="150" width="130" height="50" rx="4"
+              fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.18)" stroke-width="0.8"/>
+        <rect x="235" y="150" width="38" height="14" rx="2" fill="#2d3142" stroke="rgba(245,245,245,0.18)" stroke-width="0.8"/>
+        <text x="254" y="160" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em">LOOP</text>
+        <text x="278" y="160" fill="#8e98ac" font-size="7" font-family="'Geist Mono', monospace">[retry &le; 3, exp backoff]</text>
+
+        <!-- Frame 2: dbt Quality Gate OPT frame -->
+        <rect x="440" y="570" width="320" height="105" rx="4"
+              fill="rgba(245,245,245,0.02)" stroke="rgba(245,245,245,0.18)" stroke-width="0.8"/>
+        <rect x="440" y="570" width="34" height="14" rx="2" fill="#2d3142" stroke="rgba(245,245,245,0.18)" stroke-width="0.8"/>
+        <text x="457" y="580" fill="#bfc0c0" font-size="7" font-family="'Geist Mono', monospace" text-anchor="middle" letter-spacing="0.1em">OPT</text>
+        <text x="480" y="580" fill="#8e98ac" font-size="7" font-family="'Geist Mono', monospace">[assert 27 tests: unique, not_null, FKs]</text>
+
+        <!-- ============================================================ -->
+        <!-- MESSAGES (Time flows top to bottom) -->
+        <!-- ============================================================ -->
+
+        <!-- 1. Operator -> extract_load.py -->
+        <line x1="104" y1="130" x2="296" y2="130" stroke="#6a95d8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <rect x="135" y="118" width="130" height="14" rx="2" fill="#2d3142"/>
+        <text x="200" y="128" fill="#6a95d8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">1. Run pipeline/extract_load.py</text>
+
+        <!-- 2. Self-message: API fetch -->
+        <path d="M 304,170 H 330 V 186 H 304" fill="none" stroke="#6a95d8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <text x="338" y="181" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', monospace">2. Fetch Open-Meteo &amp; Nager.Date</text>
+
+        <!-- 3. extract_load.py -> DuckDB Bronze -->
+        <line x1="304" y1="225" x2="496" y2="225" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="330" y="213" width="140" height="14" rx="2" fill="#2d3142"/>
+        <text x="400" y="223" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">3. Atomic load bronze.* + raw.*</text>
+
+        <!-- 4. DuckDB -> Operator (Ingestion Done) -->
+        <line x1="496" y1="260" x2="104" y2="260" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <rect x="220" y="248" width="160" height="14" rx="2" fill="#2d3142"/>
+        <text x="300" y="258" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">4. Ingestion complete (3,654 weather, 193 hol)</text>
+
+        <!-- 5. Operator -> dbt Core (Run models) -->
+        <line x1="104" y1="330" x2="696" y2="330" stroke="#6a95d8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <rect x="330" y="318" width="140" height="14" rx="2" fill="#2d3142"/>
+        <text x="400" y="328" fill="#6a95d8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">5. Run dbt run --profiles-dir .</text>
+
+        <!-- 6. dbt Core -> DuckDB (Transform Silver) -->
+        <line x1="696" y1="360" x2="504" y2="360" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="540" y="348" width="120" height="14" rx="2" fill="#2d3142"/>
+        <text x="600" y="358" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">6. Build main_silver.* views</text>
+
+        <!-- 7. dbt Core -> DuckDB (Build Gold Star Schema & Marts) -->
+        <line x1="696" y1="400" x2="504" y2="400" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="525" y="388" width="150" height="14" rx="2" fill="#2d3142"/>
+        <text x="600" y="398" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">7. Populate main_gold.* &amp; marts</text>
+
+        <!-- 8. dbt Core -> Operator (dbt run passed) -->
+        <line x1="696" y1="440" x2="104" y2="440" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <rect x="320" y="428" width="160" height="14" rx="2" fill="#2d3142"/>
+        <text x="400" y="438" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">8. PASS=13 WARN=0 ERROR=0</text>
+
+        <!-- 9. Operator -> dbt Core (Run tests) -->
+        <line x1="104" y1="510" x2="696" y2="510" stroke="#6a95d8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <rect x="330" y="498" width="140" height="14" rx="2" fill="#2d3142"/>
+        <text x="400" y="508" fill="#6a95d8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">9. Run dbt test --profiles-dir .</text>
+
+        <!-- 10. dbt Core -> DuckDB (Execute assertions) -->
+        <line x1="696" y1="540" x2="504" y2="540" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <rect x="530" y="528" width="140" height="14" rx="2" fill="#2d3142"/>
+        <text x="600" y="538" fill="#f5f5f5" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">10. Execute 27 assertions</text>
+
+        <!-- 11. Self-message: dbt evaluation -->
+        <path d="M 704,600 H 730 V 616 H 704" fill="none" stroke="#bfc0c0" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <text x="738" y="611" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace">11. Evaluate test results</text>
+
+        <!-- 12. dbt Core -> Operator (All tests passed) -->
+        <line x1="696" y1="650" x2="104" y2="650" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <rect x="320" y="638" width="160" height="14" rx="2" fill="#2d3142"/>
+        <text x="400" y="648" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">12. PASS=27 WARN=0 ERROR=0</text>
+
+        <!-- 13. Operator -> Serving (Start servers) -->
+        <line x1="104" y1="710" x2="896" y2="710" stroke="#6a95d8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <rect x="430" y="698" width="140" height="14" rx="2" fill="#2d3142"/>
+        <text x="500" y="708" fill="#6a95d8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">13. Start mysql_server &amp; dashboard</text>
+
+        <!-- 14. HEADLINE SUCCESS: DuckDB -> BI Serving (Sub-50ms OLAP Queries) -->
+        <line x1="504" y1="775" x2="896" y2="775" stroke="#f08a59" stroke-width="1.6" marker-end="url(#arrow-accent)"/>
+        <rect x="615" y="762" width="170" height="16" rx="2" fill="#2d3142" stroke="#f08a59" stroke-width="0.8"/>
+        <text x="700" y="774" fill="#f08a59" font-size="8.5" font-weight="600" font-family="'Geist Mono', monospace" text-anchor="middle">14. SERVE OLAP QUERIES (&lt; 20ms)</text>
+
+        <!-- Return acknowledgment to Operator -->
+        <line x1="896" y1="810" x2="104" y2="810" stroke="#bfc0c0" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <rect x="420" y="798" width="160" height="14" rx="2" fill="#2d3142"/>
+        <text x="500" y="808" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">15. Dashboards live on :8501 &amp; :3000</text>
+
+        <!-- ============================================================ -->
+        <!-- ACTOR HEADERS (Drawn on top at y=40..85) -->
+        <!-- ============================================================ -->
+        <!-- Actor 1: Operator -->
+        <rect x="25" y="44" width="150" height="42" rx="6" fill="#393e53" stroke="rgba(245,245,245,0.15)" stroke-width="1"/>
+        <text x="100" y="62" fill="#f5f5f5" font-size="11.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Operator</text>
+        <text x="100" y="76" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Manual / Scheduled CLI</text>
+
+        <!-- Actor 2: extract_load.py -->
+        <rect x="225" y="44" width="150" height="42" rx="6" fill="#393e53" stroke="rgba(245,245,245,0.15)" stroke-width="1"/>
+        <text x="300" y="62" fill="#f5f5f5" font-size="11.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">extract_load.py</text>
+        <text x="300" y="76" fill="#6a95d8" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Python Ingestion Engine</text>
+
+        <!-- Actor 3: DuckDB Warehouse -->
+        <rect x="425" y="44" width="150" height="42" rx="6" fill="#393e53" stroke="rgba(245,245,245,0.15)" stroke-width="1"/>
+        <text x="500" y="62" fill="#f5f5f5" font-size="11.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">DuckDB Warehouse</text>
+        <text x="500" y="76" fill="#bfc0c0" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">warehouse.duckdb</text>
+
+        <!-- Actor 4: dbt Core -->
+        <rect x="625" y="44" width="150" height="42" rx="6" fill="#393e53" stroke="rgba(245,245,245,0.15)" stroke-width="1"/>
+        <text x="700" y="62" fill="#f5f5f5" font-size="11.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">dbt Core Engine</text>
+        <text x="700" y="76" fill="#8e98ac" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">dbt-duckdb v1.9</text>
+
+        <!-- Actor 5: BI Platforms -->
+        <rect x="825" y="44" width="150" height="42" rx="6" fill="#393e53" stroke="rgba(245,245,245,0.15)" stroke-width="1"/>
+        <text x="900" y="62" fill="#f5f5f5" font-size="11.5" font-weight="600" font-family="'Geist', sans-serif" text-anchor="middle">Streamlit &amp; Grafana</text>
+        <text x="900" y="76" fill="#f08a59" font-size="8" font-family="'Geist Mono', monospace" text-anchor="middle">Ports 8501 / 3000 / 3306</text>
+
+      </svg>
+    </div>
+
+    <div class="footer-note">
+      <span>Design System: Editorial Dark (#2d3142 / #f5f5f5 / #f08a59)</span>
+      <span>Typography: Instrument Serif + Geist + Geist Mono</span>
+      <span>Headline Success: #14 (Serve OLAP Queries)</span>
+    </div>
+  </div>
+
+</body>
+</html>
+

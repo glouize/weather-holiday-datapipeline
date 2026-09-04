@@ -76,6 +76,10 @@ flowchart TD
 
 ### 1.2 Data Lifecycle Management (DLM) Flow
 
+![Detailed Low-Level Design — Pipeline Sequence](images/dld_sequence.jpg)
+
+> 🔍 **Interactive Vector Diagram**: A standalone vector SVG diagram is available at [`docs/dld_sequence.html`](dld_sequence.html).
+
 ```mermaid
 sequenceDiagram
     autonumber

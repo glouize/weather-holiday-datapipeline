@@ -5,6 +5,10 @@
 
 ## 1. Medallion Entity-Relationship Diagram
 
+![Entity-Relationship Diagram — Medallion Architecture](images/erd_diagram.jpg)
+
+> 🔍 **Interactive Vector Diagram**: A standalone vector SVG diagram is available at [`docs/erd_diagram.html`](erd_diagram.html).
+
 ```mermaid
 erDiagram
     %% ==========================================
