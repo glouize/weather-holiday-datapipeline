@@ -8,48 +8,68 @@
 ### 1.1 Architectural Pattern: Medallion Architecture
 The platform implements a multi-tier **Medallion Architecture (Bronze $\rightarrow$ Silver $\rightarrow$ Gold)** to guarantee data quality, lineage traceability, and high-performance analytical querying across multi-city data (London & Manila, 2021–2026).
 
+![High-Level Design — Medallion Architecture](images/hld_architecture.jpg)
+
+> 🔍 **Interactive Vector Diagram**: A standalone vector SVG diagram is available at [`docs/hld_architecture.html`](hld_architecture.html).
+
 ```mermaid
 flowchart TD
     subgraph DataSources["1. External API Sources"]
         A1["🌤️ Open-Meteo Historical Archive API\n(Daily Temp Max/Min, Precip)"]
-        A2["📅 Nager.Date Public Holiday API\n(National & Regional Holidays)"]
+        A2["📅 Nager.Date Public Holiday API\n(National & Regional Holiday Calendars)"]
     end
 
-    subgraph BronzeLayer["2. 🥉 Bronze Layer (Raw Storage)"]
-        B1[("bronze.weather (3,654 rows)\n+ _ingested_at, _source_system, _batch_id")]
-        B2[("bronze.holidays (193 rows)\n+ _ingested_at, _source_system, _batch_id")]
+    subgraph Ingestion["2. Ingestion Engine (Python EL)"]
+        EL["extract_load.py\n• Exponential backoff (max 3 retries, 5s delay)\n• 60s/15s HTTP timeouts\n• 500ms holiday rate-limit throttle\n• Audit metadata tagging"]
     end
 
-    subgraph SilverLayer["3. 🥈 Silver Layer (Cleaned & Conformed)"]
-        S1["silver.stg_weather (View)\n• ISO date casting, deduplication, range validation"]
-        S2["silver.stg_holidays (View)\n• Standardized snake_case, boolean typing"]
-        S3[("silver.silver_weather_holidays (Table)\n• Unified daily observation grain\n• Holiday flags & calendar attributes")]
+    subgraph BronzeLayer["3. 🥉 Bronze Layer (DuckDB: bronze.* & raw.*)"]
+        B1[("bronze.weather (3,654 rows)\nRaw daily weather observations\n+ _ingested_at, _source_system, _batch_id")]
+        B2[("bronze.holidays (193 rows)\nRaw public holiday entries (GB & PH)\n+ _ingested_at, _source_system, _batch_id")]
     end
 
-    subgraph GoldLayer["4. 🥇 Gold Layer (Star Schema & Business Marts)"]
-        G_DIM["Dimensional Star Schema:\n• gold.dim_date (1,827 rows)\n• gold.dim_location (2 rows)\n• gold.dim_holiday (38 rows)"]
-        G_FACT[("gold.fact_daily_weather (Table, 3,654 rows)\n• PK: fact_id, FKs: date_key, location_id, holiday_id")]
-        G_MARTS["Aggregated Business Marts:\n• gold.mart_weather_summary (4 rows)\n• gold.mart_per_holiday (37 rows)\n• gold.mart_yearly_climate_trends (12 rows)\n• gold.mart_monthly_seasonality (44 rows)\n• gold.mart_rain_probability (4 rows)\n• gold.mart_extreme_weather_events (162 rows)"]
+    subgraph SilverLayer["4. 🥈 Silver Layer (DuckDB: main_silver.* via dbt)"]
+        S1["main_silver.stg_weather (View)\n• ISO date casting & deduplication\n• Range validation (is_valid_temp_range)\n• Precipitation ≥ 0 constraint"]
+        S2["main_silver.stg_holidays (View)\n• Snake_case standardization\n• Boolean flag casting (is_global)\n• Public holiday categorization"]
+        S3[("main_silver.silver_weather_holidays (Table)\n• Unified daily observation grain\n• Calendar flags (is_weekend, year, month)\n• Holiday name & day_type join")]
     end
 
-    subgraph ServingLayer["5. Serving Bridge & BI Dashboards"]
-        P1["mysql_server.py (port 3306)\n• MySQL Wire Protocol\n• TLS/SSL Encryption\n• In-Memory DuckDB Bridge"]
-        BI1["📊 Streamlit Web App (port 8501)\n• Dark Mode UI\n• City Switcher (London/Manila)\n• 7 Narrative Insight Modules"]
-        BI2["📈 Grafana BI Platform (port 3000)\n• 🇬🇧 Dedicated London Dashboard\n• 🇵🇭 Dedicated Manila Dashboard\n• 🌐 Comparative Overview Dashboard"]
+    subgraph GoldLayer["5. 🥇 Gold Layer (DuckDB: main_gold.* via dbt Star Schema & Marts)"]
+        subgraph Dimensions["Conformed Dimensions"]
+            G_DATE["main_gold.dim_date (1,827 rows)\n• PK: date_key\n• Day name, weekend flag, seasons"]
+            G_LOC["main_gold.dim_location (2 rows)\n• PK: location_id (London, Manila)\n• Timezone & climate zones"]
+            G_HOL["main_gold.dim_holiday (38 rows)\n• PK: holiday_id (0 = 'No Holiday')\n• Local name & global flag"]
+        end
+        G_FACT[("main_gold.fact_daily_weather (Table, 3,654 rows)\n• PK: fact_id\n• FKs: date_key, location_id, holiday_id\n• Measures: max/min temp, precipitation_sum")]
+        G_MARTS["Aggregated Business Marts (6 Models):\n• mart_weather_summary (Holiday vs Regular Day KPIs)\n• mart_per_holiday (Per-holiday records & averages)\n• mart_yearly_climate_trends (5-yr climate shift)\n• mart_monthly_seasonality (12-month seasonality)\n• mart_rain_probability (Rain & heavy rain %)\n• mart_extreme_weather_events (Top precipitation on holidays)"]
     end
 
-    A1 -->|Python HTTP GET with Exponential Backoff| B1
-    A2 -->|Python HTTP GET with Throttling| B2
-    B1 --> S1
-    B2 --> S2
+    subgraph ServingLayer["6. Serving & Analytics Layer"]
+        P_MYSQL["MySQL Bridge (mysql_server.py)\n• Port: 3306 (Loopback 127.0.0.1)\n• TLS/SSL Encryption (server.crt/key)\n• In-Memory DuckDB OLAP Cache"]
+        BI_GRAFANA["📈 Grafana BI Platform (Port 3000)\n• 🇬🇧 London Dashboard\n• 🇵🇭 Manila Dashboard\n• 🌐 Overview Comparison Dashboard"]
+        BI_STREAMLIT["📊 Streamlit Web App (Port 8501)\n• Direct in-process DuckDB engine\n• Dark Mode UI & City Switcher\n• 7 Narrative Analytical Modules"]
+    end
+
+    A1 -->|HTTP GET with Retry| EL
+    A2 -->|HTTP GET with Throttle| EL
+    EL -->|Idempotent Atomic Load| B1
+    EL -->|Idempotent Atomic Load| B2
+    B1 -->|dbt source| S1
+    B2 -->|dbt source| S2
     S1 --> S3
     S2 --> S3
-    S3 --> G_DIM
+    S1 --> G_DATE
+    S1 --> G_LOC
+    S2 --> G_HOL
     S3 --> G_FACT
+    G_LOC -.->|FK lookup| G_FACT
+    G_HOL -.->|FK lookup| G_FACT
     G_FACT --> G_MARTS
-    G_MARTS -->|Direct In-Process SQL| BI1
-    G_MARTS -->|DuckDB In-Memory OLAP| P1
-    P1 -->|MySQL Protocol| BI2
+    G_FACT -->|In-Process DuckDB SQL| BI_STREAMLIT
+    G_MARTS -->|In-Process DuckDB SQL| BI_STREAMLIT
+    G_FACT -->|Memory Replication| P_MYSQL
+    G_MARTS -->|Memory Replication| P_MYSQL
+    P_MYSQL -->|TLS MySQL Wire Protocol| BI_GRAFANA
 ```
 
 ---

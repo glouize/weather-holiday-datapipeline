@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather & Holiday Intelligence Platform — High-Level Design (HLD)</title>
+  <style>
+    :root {
+      --bg: #0b0f19;
+      --card-bg: #131b2e;
+      --border: #1e293b;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent-blue: #38bdf8;
+      --bronze: #d97706;
+      --bronze-bg: rgba(217, 119, 6, 0.08);
+      --silver: #94a3b8;
+      --silver-bg: rgba(148, 163, 184, 0.08);
+      --gold: #eab308;
+      --gold-bg: rgba(234, 179, 8, 0.08);
+      --emerald: #10b981;
+      --emerald-bg: rgba(16, 185, 129, 0.08);
+      --purple: #a855f7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      padding: 40px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 30px;
+      max-width: 900px;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .header p {
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+    .diagram-container {
+      width: 100%;
+      max-width: 1100px;
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    }
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+    .legend-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>High-Level Design (HLD) — Medallion Architecture</h1>
+    <p>Multi-City Weather & Public Holiday Intelligence Platform (London & Manila, 2021–2026)</p>
+  </div>
+
+  <div class="diagram-container">
+    <svg viewBox="0 0 1000 1280" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#64748b" />
+        </marker>
+        <marker id="arrow-active" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+        </marker>
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity="0.4"/>
+        </filter>
+      </defs>
+
+      <!-- 1. EXTERNAL APIS -->
+      <g id="tier-external">
+        <rect x="50" y="30" width="900" height="120" rx="12" fill="#131d33" stroke="#1e3a8a" stroke-width="1.5" filter="url(#glow)"/>
+        <text x="75" y="60" fill="#38bdf8" font-size="13" font-weight="700" letter-spacing="1">1. EXTERNAL DATA SOURCES</text>
+        
+        <!-- API 1 -->
+        <rect x="75" y="75" width="410" height="60" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+        <text x="95" y="100" fill="#ffffff" font-size="14" font-weight="600">🌤️ Open-Meteo Historical Archive API</text>
+        <text x="95" y="122" fill="#94a3b8" font-size="12">Daily observations: max/min temp, precipitation_sum (London, Manila)</text>
+
+        <!-- API 2 -->
+        <rect x="515" y="75" width="410" height="60" rx="8" fill="#1e293b" stroke="#334155" stroke-width="1"/>
+        <text x="535" y="100" fill="#ffffff" font-size="14" font-weight="600">📅 Nager.Date Public Holiday API</text>
+        <text x="535" y="122" fill="#94a3b8" font-size="12">National and regional public holidays (GB & PH 2021–2026)</text>
+      </g>
+
+      <!-- INGESTION CONNECTOR -->
+      <line x1="500" y1="150" x2="500" y2="195" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+      <rect x="360" y="162" width="280" height="24" rx="12" fill="#0f172a" stroke="#334155" stroke-width="1"/>
+      <text x="500" y="178" fill="#94a3b8" font-size="11" font-weight="500" text-anchor="middle">Python Ingestion (extract_load.py with Retry & Backoff)</text>
+
+      <!-- 2. BRONZE LAYER -->
+      <g id="tier-bronze">
+        <rect x="50" y="200" width="900" height="135" rx="12" fill="rgba(217, 119, 6, 0.05)" stroke="#b45309" stroke-width="1.5" filter="url(#glow)"/>
+        <text x="75" y="230" fill="#f59e0b" font-size="13" font-weight="700" letter-spacing="1">2. 🥉 BRONZE LAYER (RAW DUCKDB TABLES: bronze.* & raw.*)</text>
+        
+        <!-- Bronze Weather -->
+        <rect x="75" y="245" width="410" height="75" rx="8" fill="#1e293b" stroke="#78350f" stroke-width="1"/>
+        <text x="95" y="270" fill="#fde68a" font-size="14" font-weight="600">bronze.weather & raw.weather</text>
+        <text x="95" y="290" fill="#cbd5e1" font-size="12">3,654 raw observation rows (London & Manila 5-yr)</text>
+        <text x="95" y="308" fill="#94a3b8" font-size="11">Audit tags: _ingested_at, _source_system, _batch_id</text>
+
+        <!-- Bronze Holidays -->
+        <rect x="515" y="245" width="410" height="75" rx="8" fill="#1e293b" stroke="#78350f" stroke-width="1"/>
+        <text x="535" y="270" fill="#fde68a" font-size="14" font-weight="600">bronze.holidays & raw.holidays</text>
+        <text x="535" y="290" fill="#cbd5e1" font-size="12">193 raw holiday records (GB & PH 2021–2026)</text>
+        <text x="535" y="308" fill="#94a3b8" font-size="11">Audit tags: _ingested_at, _source_system, _batch_id</text>
+      </g>
+
+      <!-- DBT RUN 1 -->
+      <line x1="500" y1="335" x2="500" y2="380" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+      <rect x="420" y="347" width="160" height="24" rx="12" fill="#0f172a" stroke="#ea580c" stroke-width="1"/>
+      <text x="500" y="363" fill="#fb923c" font-size="11" font-weight="600" text-anchor="middle">⚡ dbt run (Silver Models)</text>
+
+      <!-- 3. SILVER LAYER -->
+      <g id="tier-silver">
+        <rect x="50" y="385" width="900" height="155" rx="12" fill="rgba(148, 163, 184, 0.05)" stroke="#64748b" stroke-width="1.5" filter="url(#glow)"/>
+        <text x="75" y="415" fill="#cbd5e1" font-size="13" font-weight="700" letter-spacing="1">3. 🥈 SILVER LAYER (CLEANSED, STANDARDIZED & CONFORMED: main_silver.*)</text>
+        
+        <!-- stg_weather -->
+        <rect x="75" y="430" width="265" height="95" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1"/>
+        <text x="90" y="455" fill="#ffffff" font-size="13" font-weight="600">main_silver.stg_weather</text>
+        <text x="90" y="475" fill="#94a3b8" font-size="11">• ISO date casting & deduplication</text>
+        <text x="90" y="493" fill="#94a3b8" font-size="11">• Temp range validation flag</text>
+        <text x="90" y="511" fill="#94a3b8" font-size="11">• Precipitation sum ≥ 0 check</text>
+
+        <!-- stg_holidays -->
+        <rect x="367" y="430" width="265" height="95" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1"/>
+        <text x="382" y="455" fill="#ffffff" font-size="13" font-weight="600">main_silver.stg_holidays</text>
+        <text x="382" y="475" fill="#94a3b8" font-size="11">• Standardized snake_case naming</text>
+        <text x="382" y="493" fill="#94a3b8" font-size="11">• Boolean is_global typing</text>
+        <text x="382" y="511" fill="#94a3b8" font-size="11">• Public holiday categorization</text>
+
+        <!-- silver_weather_holidays -->
+        <rect x="660" y="430" width="265" height="95" rx="8" fill="#1e293b" stroke="#475569" stroke-width="1"/>
+        <text x="675" y="455" fill="#ffffff" font-size="13" font-weight="600">silver_weather_holidays</text>
+        <text x="675" y="475" fill="#94a3b8" font-size="11">• Unified daily observation grain</text>
+        <text x="675" y="493" fill="#94a3b8" font-size="11">• Calendar flags (weekend, year, month)</text>
+        <text x="675" y="511" fill="#94a3b8" font-size="11">• Holiday name & day_type join</text>
+      </g>
+
+      <!-- DBT RUN 2 -->
+      <line x1="500" y1="540" x2="500" y2="585" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+      <rect x="390" y="552" width="220" height="24" rx="12" fill="#0f172a" stroke="#ea580c" stroke-width="1"/>
+      <text x="500" y="568" fill="#fb923c" font-size="11" font-weight="600" text-anchor="middle">⚡ dbt run (Gold Star Schema & Marts)</text>
+
+      <!-- 4. GOLD LAYER -->
+      <g id="tier-gold">
+        <rect x="50" y="590" width="900" height="340" rx="12" fill="rgba(234, 179, 8, 0.05)" stroke="#ca8a04" stroke-width="1.5" filter="url(#glow)"/>
+        <text x="75" y="620" fill="#facc15" font-size="13" font-weight="700" letter-spacing="1">4. 🥇 GOLD LAYER (STAR SCHEMA & BUSINESS MARTS: main_gold.*)</text>
+        
+        <!-- Dimensions Box -->
+        <rect x="75" y="635" width="410" height="135" rx="8" fill="#1e293b" stroke="#854d0e" stroke-width="1"/>
+        <text x="95" y="660" fill="#fef08a" font-size="13" font-weight="600">⭐ Conformed Dimensions</text>
+        <text x="95" y="683" fill="#ffffff" font-size="12">main_gold.dim_date (1,827 rows)</text>
+        <text x="110" y="700" fill="#94a3b8" font-size="11">PK: date_key, day_name, is_weekend, season_temperate</text>
+        <text x="95" y="720" fill="#ffffff" font-size="12">main_gold.dim_location (2 rows) & dim_holiday (38 rows)</text>
+        <text x="110" y="737" fill="#94a3b8" font-size="11">PKs: location_id (London, Manila), holiday_id (0 = No Holiday)</text>
+
+        <!-- Fact Table Box -->
+        <rect x="75" y="785" width="410" height="130" rx="8" fill="#1e293b" stroke="#854d0e" stroke-width="1"/>
+        <text x="95" y="810" fill="#fef08a" font-size="13" font-weight="600">📊 Central Fact Table</text>
+        <text x="95" y="833" fill="#ffffff" font-size="12">main_gold.fact_daily_weather (3,654 rows)</text>
+        <text x="95" y="855" fill="#94a3b8" font-size="11">• Primary Key: fact_id (Row number)</text>
+        <text x="95" y="873" fill="#94a3b8" font-size="11">• Foreign Keys: date_key → dim_date, location_id, holiday_id</text>
+        <text x="95" y="891" fill="#94a3b8" font-size="11">• Measures: max/min temp, precipitation_sum, flags</text>
+        <text x="95" y="907" fill="#38bdf8" font-size="10">Validated via 27 automated dbt schema & integrity tests</text>
+
+        <!-- Business Marts Box -->
+        <rect x="515" y="635" width="410" height="280" rx="8" fill="#1e293b" stroke="#854d0e" stroke-width="1"/>
+        <text x="535" y="660" fill="#fef08a" font-size="13" font-weight="600">📈 Aggregated Business Marts (6 Models)</text>
+        
+        <rect x="535" y="675" width="370" height="34" rx="4" fill="#0f172a"/>
+        <text x="547" y="696" fill="#ffffff" font-size="11" font-weight="500">mart_weather_summary</text>
+        <text x="730" y="696" fill="#94a3b8" font-size="11">Holiday vs Regular Day KPIs</text>
+
+        <rect x="535" y="715" width="370" height="34" rx="4" fill="#0f172a"/>
+        <text x="547" y="736" fill="#ffffff" font-size="11" font-weight="500">mart_per_holiday</text>
+        <text x="730" y="736" fill="#94a3b8" font-size="11">Holiday temperature & rain rankings</text>
+
+        <rect x="535" y="755" width="370" height="34" rx="4" fill="#0f172a"/>
+        <text x="547" y="776" fill="#ffffff" font-size="11" font-weight="500">mart_yearly_climate_trends</text>
+        <text x="730" y="776" fill="#94a3b8" font-size="11">5-year climate longitudinal shift</text>
+
+        <rect x="535" y="795" width="370" height="34" rx="4" fill="#0f172a"/>
+        <text x="547" y="816" fill="#ffffff" font-size="11" font-weight="500">mart_monthly_seasonality</text>
+        <text x="730" y="816" fill="#94a3b8" font-size="11">12-month temperature seasonality</text>
+
+        <rect x="535" y="835" width="370" height="34" rx="4" fill="#0f172a"/>
+        <text x="547" y="856" fill="#ffffff" font-size="11" font-weight="500">mart_rain_probability</text>
+        <text x="730" y="856" fill="#94a3b8" font-size="11">Rain & heavy rain probabilities (%)</text>
+
+        <rect x="535" y="875" width="370" height="34" rx="4" fill="#0f172a"/>
+        <text x="547" y="896" fill="#ffffff" font-size="11" font-weight="500">mart_extreme_weather_events</text>
+        <text x="730" y="896" fill="#94a3b8" font-size="11">Top rainfall events on holidays</text>
+      </g>
+
+      <!-- SERVING CONNECTORS -->
+      <line x1="280" y1="930" x2="280" y2="985" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrow-active)"/>
+      <line x1="720" y1="930" x2="720" y2="985" stroke="#10b981" stroke-width="2" marker-end="url(#arrow-active)"/>
+
+      <!-- 5. SERVING & PRESENTATION LAYER -->
+      <g id="tier-serving">
+        <rect x="50" y="990" width="900" height="240" rx="12" fill="rgba(16, 185, 129, 0.05)" stroke="#059669" stroke-width="1.5" filter="url(#glow)"/>
+        <text x="75" y="1020" fill="#34d399" font-size="13" font-weight="700" letter-spacing="1">5. SERVING & BI PRESENTATION LAYER</text>
+        
+        <!-- Streamlit App -->
+        <rect x="75" y="1035" width="410" height="175" rx="8" fill="#1e293b" stroke="#047857" stroke-width="1"/>
+        <text x="95" y="1060" fill="#a7f3d0" font-size="14" font-weight="600">📊 Streamlit Web App (Port 8501)</text>
+        <text x="95" y="1080" fill="#94a3b8" font-size="11">Direct In-Process DuckDB connection • Sub-millisecond latency</text>
+        <text x="95" y="1105" fill="#ffffff" font-size="12">• Dynamic City Switcher: London (GB) / Manila (PH)</text>
+        <text x="95" y="1125" fill="#ffffff" font-size="12">• 7 Narrative Analytical Insight Modules</text>
+        <text x="95" y="1145" fill="#ffffff" font-size="12">• Interactive Plotly visualizations & KPIs</text>
+        <text x="95" y="1165" fill="#ffffff" font-size="12">• Parameterized SQL query execution (anti-SQLi)</text>
+        <text x="95" y="1190" fill="#38bdf8" font-size="11">serving/dashboard.py</text>
+
+        <!-- MySQL Bridge & Grafana -->
+        <rect x="515" y="1035" width="410" height="175" rx="8" fill="#1e293b" stroke="#047857" stroke-width="1"/>
+        <text x="535" y="1060" fill="#a7f3d0" font-size="14" font-weight="600">📈 MySQL Wire Protocol Bridge & Grafana (Port 3000)</text>
+        <text x="535" y="1080" fill="#94a3b8" font-size="11">mysql_server.py (Port 3306) with TLS/SSL encryption</text>
+        <text x="535" y="1105" fill="#ffffff" font-size="12">• In-Memory DuckDB cache duplicating Gold tables & marts</text>
+        <text x="535" y="1125" fill="#ffffff" font-size="12">• 🇬🇧 Dedicated London Dashboard (/d/weather-london-insights)</text>
+        <text x="535" y="1145" fill="#ffffff" font-size="12">• 🇵🇭 Dedicated Manila Dashboard (/d/weather-manila-insights)</text>
+        <text x="535" y="1165" fill="#ffffff" font-size="12">• 🌐 Comparative Overview Dashboard (/d/weather-holiday-mysql)</text>
+        <text x="535" y="1190" fill="#38bdf8" font-size="11">Native Grafana timepicker & auto-refresh</text>
+      </g>
+    </svg>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-dot" style="background: #38bdf8;"></div>External APIs</div>
+    <div class="legend-item"><div class="legend-dot" style="background: #d97706;"></div>Bronze Raw Layer</div>
+    <div class="legend-item"><div class="legend-dot" style="background: #94a3b8;"></div>Silver Conformed Layer</div>
+    <div class="legend-item"><div class="legend-dot" style="background: #eab308;"></div>Gold Star Schema & Marts</div>
+    <div class="legend-item"><div class="legend-dot" style="background: #10b981;"></div>Serving & Presentation</div>
+  </div>
+
+</body>
+</html>
+

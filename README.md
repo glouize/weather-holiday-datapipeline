@@ -50,11 +50,12 @@ It ingests 5 years (2021–2026) of daily weather observations and national publ
 
 ![High-Level Design — Medallion Architecture](docs/images/hld_architecture.jpg)
 
+> 🔍 **Interactive Vector Diagram**: [`docs/hld_architecture.html`](docs/hld_architecture.html)  
+> Full design document with complete layer specifications: [`docs/design_documents.md`](docs/design_documents.md)
+
 ### Detailed Low-Level Design (DLD) — Pipeline Execution Flow
 
 ![Detailed Low-Level Design — Pipeline Sequence](docs/images/dld_sequence.jpg)
-
-> Full design document with layer specifications: [`docs/design_documents.md`](docs/design_documents.md)
 
 ---
 
